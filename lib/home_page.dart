@@ -1,30 +1,39 @@
 import 'package:flutter/material.dart';
 import 'package:gerencia_money/receita_form_page.dart';
+import 'package:gerencia_money/despesa_form_page.dart';
+import 'package:gerencia_money/transacao_helper.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'despesas_page.dart';
+import 'receitas_page.dart';
 
-import 'despesa_form_page.dart';
-
-class Transacao {
-  final String descricao;
-  final double valor;
-  final DateTime data;
-
-  Transacao({required this.descricao, required this.valor, required this.data});
-}
 
 class HomePage extends StatefulWidget {
+  final List<Transacao> transacoes;
+
+  const HomePage({Key? key, required this.transacoes}) : super(key: key);
+
   @override
   _HomePageState createState() => _HomePageState();
 }
 
 class _HomePageState extends State<HomePage> {
-  double saldo = 0.0;
-  double despesas = 0.0;
-  double receitas = 0.0;
-
+  double _saldo = 0.0;
+  double _despesas = 0.0;
+  double _receitas = 0.0;
   List<Transacao> transacoes = [];
 
-  void salvarTransacoes() async {
+  final _formKey = GlobalKey<FormState>();
+  String _descricao = '';
+  double _valor = 0.0;
+  DateTime _data = DateTime.now();
+
+  @override
+  void initState() {
+    super.initState();
+    carregarTransacoesDoSharedPreferences();
+  }
+
+  Future<void> salvarTransacoesNoSharedPreferences() async {
     final prefs = await SharedPreferences.getInstance();
 
     List<String> transacoesString = transacoes.map((transacao) {
@@ -34,7 +43,7 @@ class _HomePageState extends State<HomePage> {
     await prefs.setStringList('transacoes', transacoesString);
   }
 
-  void carregarTransacoes() async {
+  Future<void> carregarTransacoesDoSharedPreferences() async {
     final prefs = await SharedPreferences.getInstance();
 
     List<String> transacoesString = prefs.getStringList('transacoes') ?? [];
@@ -48,126 +57,254 @@ class _HomePageState extends State<HomePage> {
 
         return Transacao(descricao: descricao, valor: valor, data: data);
       }).toList();
+
+      // Atualizar as variáveis relacionadas à UI aqui
+      _despesas = transacoes.where((t) => t.valor < 0).fold(0.0, (acc, t) => acc + t.valor);
+      _receitas = transacoes.where((t) => t.valor >= 0).fold(0.0, (acc, t) => acc + t.valor);
+      _saldo = _receitas + _despesas;
     });
   }
-
 
   void adicionarTransacao(String descricao, double valor, DateTime data) {
     setState(() {
-      transacoes.add(Transacao(descricao: descricao, valor: valor, data: data));
+      Transacao transacao = Transacao(descricao: descricao, valor: valor, data: data);
+      transacoes.add(transacao);
 
-      if (valor < 0) {
-        despesas += valor;
-      } else {
-        receitas += valor;
+      if (transacao.valor < 0) {
+        _despesas += transacao.valor;
       }
 
-      saldo += valor;
+      if (transacao.valor >= 0) {
+        _receitas += transacao.valor;
+      }
+
+      _saldo = _receitas + _despesas;
+
+      salvarTransacoesNoSharedPreferences();
     });
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('Dashboard'),
+
+  void _removerTransacao(Transacao transacao) {
+    setState(() {
+      transacoes.remove(transacao);
+
+      if (transacao.valor < 0) {
+        _despesas -= transacao.valor;
+      } else {
+        _receitas -= transacao.valor;
+      }
+      _saldo = _receitas + _despesas;
+
+      salvarTransacoesNoSharedPreferences();
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(transacao.valor < 0
+            ? 'Despesa excluída com sucesso!'
+            : 'Receita excluída com sucesso!'),
       ),
-      body: Column(
-        children: <Widget>[
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(20.0),
-              child: Column(
-                children: <Widget>[
-                  Text(
-                    'Saldo',
-                    style: TextStyle(
-                      fontSize: 24.0,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  Text(
-                    'R\$ ${saldo.toStringAsFixed(2)}',
-                    style: TextStyle(
-                      fontSize: 48.0,
-                      color: saldo >= 0 ? Colors.green : Colors.red,
-                    ),
-                  ),
-                ],
-              ),
-            ),
+    );
+  }
+
+
+    Widget buildTransacaoItem(Transacao transacao) {
+      String dataFormatada =
+          "${transacao.data.day.toString().padLeft(2, '0')}-${transacao.data
+          .month.toString().padLeft(2, '0')}-${transacao.data.year}";
+
+      String valorFormatado = transacao.valor.toStringAsFixed(2);
+
+      return ListTile(
+        title: Text(transacao.descricao),
+        subtitle: Text(
+          dataFormatada,
+          style: const TextStyle(
+            fontStyle: FontStyle.italic,
           ),
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(20.0),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: <Widget>[
-                  Column(
-                    children: <Widget>[
-                      Text(
-                        'Receitas',
-                        style: TextStyle(
-                          fontSize: 24.0,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      Text(
-                        'R\$ ${receitas.toStringAsFixed(2)}',
-                        style: TextStyle(
-                          fontSize: 24.0,
-                          color: Colors.green,
-                        ),
-                      ),
-                    ],
-                  ),
-                  Column(
-                    children: <Widget>[
-                      Text(
-                        'Despesas',
-                        style: TextStyle(
-                          fontSize: 24.0,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      Text(
-                        'R\$ ${despesas.toStringAsFixed(2)}',
-                        style: TextStyle(
-                          fontSize: 24.0,
-                          color: Colors.red,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
+        ),
+        trailing: Text(
+          'R\$ $valorFormatado',
+          style: TextStyle(
+            color: transacao.valor >= 0 ? Colors.green : Colors.red,
           ),
-          // Aqui você pode adicionar a lista de despesas e receitas
-        ],
-      ),
-      bottomNavigationBar: BottomNavigationBar(
-        items: const <BottomNavigationBarItem>[
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home),
-            label: 'Início',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.business),
-            label: 'Despesas',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.school),
-            label: 'Receitas',
-          ),
-        ],
-      ),
-      floatingActionButton: FloatingActionButton(
-        child: Icon(Icons.add),
-        onPressed: () {
+        ),
+        tileColor: transacao.valor >= 0 ? Colors.green[50] : Colors.red[50],
+        onTap: () {
           showDialog(
+            context: context,
+            builder: (BuildContext context) {
+              return AlertDialog(
+                title: Text('Detalhes da Transação'),
+                content: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    ListTile(
+                      title: Text('Descrição'),
+                      subtitle: Text(transacao.descricao),
+                    ),
+                    ListTile(
+                      title: Text('Data'),
+                      subtitle: Text(dataFormatada),
+                    ),
+                    ListTile(
+                      title: Text('Valor'),
+                      subtitle: Text('R\$ $valorFormatado'),
+                    ),
+                  ],
+                ),
+              );
+            },
+          );
+        },
+      );
+    }
+
+    Widget buildTransacaoList(List<Transacao> transacoes) {
+      return Expanded(
+        child: ListView.builder(
+          itemCount: transacoes.length,
+          itemBuilder: (context, index) {
+            return Card(
+              child: buildTransacaoItem(transacoes[index]),
+            );
+          },
+        ),
+      );
+    }
+
+    @override
+    Widget build(BuildContext context) {
+      return Scaffold(
+        appBar: AppBar(
+          title: Text('Dashboard'),
+        ),
+        body: Column(
+          children: <Widget>[
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  children: <Widget>[
+                    const Text(
+                      'Saldo',
+                      style: TextStyle(
+                        fontSize: 26.0,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    Text(
+                      'R\$ ${_saldo.toStringAsFixed(2)}',
+                      style: TextStyle(
+                        fontSize: 36.0,
+                        color: _saldo >= 0 ? Colors.green : Colors.red,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(14.0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: <Widget>[
+                    Column(
+                      children: <Widget>[
+                        const Text(
+                          'Receitas',
+                          style: TextStyle(
+                            fontSize: 22.0,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        Text(
+                          'R\$ ${_receitas.toStringAsFixed(2)}',
+                          style: const TextStyle(
+                            fontSize: 20.0,
+                            color: Colors.green,
+                          ),
+                        ),
+                      ],
+                    ),
+                    Column(
+                      children: <Widget>[
+                        const Text(
+                          'Despesas',
+                          style: TextStyle(
+                            fontSize: 22.0,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        Text(
+                          'R\$ ${_despesas.toStringAsFixed(2)}',
+                          style: const TextStyle(
+                            fontSize: 20.0,
+                            color: Colors.red,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            buildTransacaoList(transacoes),
+          ],
+        ),
+        bottomNavigationBar: BottomNavigationBar(
+          items: const <BottomNavigationBarItem>[
+            BottomNavigationBarItem(
+              icon: Icon(Icons.home),
+              label: 'Início',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.money_off),
+              label: 'Despesas',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.monetization_on),
+              label: 'Receitas',
+            ),
+          ],
+          onTap: (index) {
+            switch (index) {
+              case 0: // Início
+              // Navegar para a HomePage (se necessário)
+                break;
+              case 1: // Despesas
+                List<Transacao> despesas = transacoes.where((t) => t.valor < 0)
+                    .toList();
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => DespesasPage(despesas: despesas,
+                        onRemoveTransaction: _removerTransacao),
+                  ),
+                );
+                break;
+              case 2: // Receitas
+                List<Transacao> receitas = transacoes.where((t) => t.valor >= 0)
+                    .toList();
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => ReceitasPage(receitas: receitas,
+                        onRemoveTransaction: _removerTransacao),
+                  ),
+                );
+                break;
+            }
+          },
+        ),
+        floatingActionButton: FloatingActionButton(
+          child: Icon(Icons.add),
+          onPressed: () {
+            showDialog(
               context: context,
-              builder: (BuildContext context){
+              builder: (BuildContext context) {
                 return AlertDialog(
                   title: Text('Cadastrar'),
                   content: Column(
@@ -179,17 +316,20 @@ class _HomePageState extends State<HomePage> {
                         onTap: () {
                           Navigator.push(
                             context,
-                            MaterialPageRoute(builder: (context) => DespesaFormPage(onSubmit: adicionarTransacao)),
+                            MaterialPageRoute(builder: (context) =>
+                                DespesaFormPage(onSubmit: adicionarTransacao)),
                           );
                         },
                       ),
                       ListTile(
-                        leading: Icon(Icons.money),
+                        leading: Icon(Icons.monetization_on),
                         title: Text('Receita'),
-                        onTap: (){
+                        onTap: () {
                           Navigator.push(
-                              context,
-                            MaterialPageRoute(builder: (context) => ReceitaFormPage(onSubmit: adicionarTransacao)),
+                            context,
+                            MaterialPageRoute(
+                                builder: (context) => ReceitaFormPage(
+                                    onSubmit: adicionarTransacao)),
                           );
                         },
                       ),
@@ -203,4 +343,5 @@ class _HomePageState extends State<HomePage> {
       );
     }
 }
+
 

@@ -19,6 +19,14 @@ class _DespesaFormPageState extends State<DespesaFormPage> {
     if (_formKey.currentState?.validate() ?? false) {
       _formKey.currentState?.save();
       widget.onSubmit(_descricao, -_valor, _data);
+
+      // Exibir SnackBar ao cadastrar a despesa
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Despesa cadastrada com sucesso!'),
+          duration: Duration(seconds: 2),
+        ),
+      );
     }
   }
 
@@ -26,7 +34,7 @@ class _DespesaFormPageState extends State<DespesaFormPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Cadastrar Despesa'),
+        title: const Text('Cadastrar Despesa'),
         backgroundColor: Colors.red,
       ),
       body: Form(
@@ -34,7 +42,7 @@ class _DespesaFormPageState extends State<DespesaFormPage> {
         child: Column(
           children: <Widget>[
             TextFormField(
-              decoration: InputDecoration(labelText: 'Descrição do gasto'),
+              decoration: const InputDecoration(labelText: 'Descrição do gasto'),
               validator: (value) {
                 if (value?.isEmpty ?? true) {
                   return 'Por favor, insira a descrição do gasto';
@@ -45,9 +53,8 @@ class _DespesaFormPageState extends State<DespesaFormPage> {
                 _descricao = value ?? '';
               },
             ),
-
             TextFormField(
-              decoration: InputDecoration(labelText: 'Valor'),
+              decoration: const InputDecoration(labelText: 'Valor'),
               keyboardType: TextInputType.number,
               validator: (value) {
                 if (value?.isEmpty ?? true) {

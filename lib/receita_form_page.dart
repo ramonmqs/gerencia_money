@@ -19,6 +19,14 @@ class _ReceitaFormPageState extends State<ReceitaFormPage> {
     if (_formKey.currentState?.validate() ?? false) {
       _formKey.currentState?.save();
       widget.onSubmit(_descricao, _valor, _data);
+
+      // Exibir SnackBar ao cadastrar a receita
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Receita cadastrada com sucesso!'),
+          duration: Duration(seconds: 2),
+        ),
+      );
     }
   }
 
@@ -34,7 +42,7 @@ class _ReceitaFormPageState extends State<ReceitaFormPage> {
         child: Column(
           children: <Widget>[
             TextFormField(
-              decoration: InputDecoration(labelText: 'Descrição da Receita'),
+              decoration: InputDecoration(labelText: 'Descrição da receita'),
               validator: (value) {
                 if (value?.isEmpty ?? true) {
                   return 'Por favor, insira a descrição da receita';
@@ -45,7 +53,6 @@ class _ReceitaFormPageState extends State<ReceitaFormPage> {
                 _descricao = value ?? '';
               },
             ),
-
             TextFormField(
               decoration: InputDecoration(labelText: 'Valor'),
               keyboardType: TextInputType.number,
@@ -69,3 +76,4 @@ class _ReceitaFormPageState extends State<ReceitaFormPage> {
     );
   }
 }
+
